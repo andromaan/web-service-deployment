@@ -25,13 +25,16 @@ jobs:
 
       - name: Install and Build
         run: |
-          npm install
+          npm ci
           npm run build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist # Path to your build output
+          path: "./dist"
 
   deploy:
     needs: build
