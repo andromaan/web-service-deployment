@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import "./App.css";
 
 type Platform = "vercel" | "github-pages";
@@ -28,6 +29,47 @@ function App() {
   const [likes, setLikes] = useState(18);
   const [platform, setPlatform] = useState<Platform>("vercel");
   const [copied, setCopied] = useState(false);
+
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const handleUpload = async () => {
+    if (!file) return;
+
+    setUploading(true);
+    setMessage("");
+
+    const S3_BUCKET = import.meta.env.VITE_AWS_BUCKET;
+    const REGION = import.meta.env.VITE_AWS_REGION;
+
+    const s3Client = new S3Client({
+      region: REGION,
+      credentials: {
+        accessKeyId: import.meta.env.VITE_AWS_ACCESS_KEY_ID,
+        secretAccessKey: import.meta.env.VITE_AWS_SECRET_ACCESS_KEY,
+      },
+    });
+
+    const arrayBuffer = await file.arrayBuffer();
+
+    const params = {
+      Bucket: S3_BUCKET,
+      Key: file.name,
+      Body: new Uint8Array(arrayBuffer),
+      ContentType: file.type,
+    };
+
+    try {
+      await s3Client.send(new PutObjectCommand(params));
+      setMessage(`✅ Файл "${file.name}" успішно завантажено в S3!`);
+    } catch (error) {
+      console.error(error);
+      setMessage("❌ Помилка завантаження");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const activeGuide = useMemo(() => deployContent[platform], [platform]);
   const imageRef = "ghcr.io/andromaan/web-service-deployment:latest";
@@ -184,6 +226,34 @@ function App() {
             polished in portfolio links and CI previews.
           </p>
         </article>
+      </section>
+
+      <section
+        className="panel"
+        aria-labelledby="upload-title"
+        style={{ textAlign: "center", marginTop: "2rem" }}
+      >
+        <h2 id="upload-title">Тест завантаження в S3 (Лабораторна №7)</h2>
+
+        <input
+          type="file"
+          onChange={(e) => e.target.files && setFile(e.target.files[0])}
+        />
+
+        <br />
+        <br />
+
+        <button
+          onClick={handleUpload}
+          disabled={!file || uploading}
+          style={{ padding: "12px 24px", fontSize: "16px" }}
+        >
+          {uploading ? "Завантажується..." : "Завантажити в S3"}
+        </button>
+
+        {message && (
+          <p style={{ marginTop: "20px", fontSize: "18px" }}>{message}</p>
+        )}
       </section>
 
       <footer className="footer">
